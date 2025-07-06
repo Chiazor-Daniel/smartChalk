@@ -5,7 +5,9 @@ import Header from '@/components/Header';
 import Whiteboard from '@/components/Whiteboard';
 import SolutionDisplay from '@/components/SolutionDisplay';
 import { Card, CardContent } from '@/components/ui/card';
-import { Separator } from '@/components/ui/separator';
+import { solveProblem } from '@/app/actions';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Terminal } from 'lucide-react';
 
 export interface SolutionState {
   recognizedText: string;
@@ -21,7 +23,7 @@ export default function Home() {
   const [error, setError] = useState<string | null>(null);
   const [key, setKey] = useState(Date.now()); // Key to reset child components
 
-  const handleSolve = (imageDataUrl: string) => {
+  const handleSolve = async (imageDataUrl: string) => {
     if (!imageDataUrl) {
       setError('Please draw or upload a problem first.');
       return;
@@ -30,24 +32,18 @@ export default function Home() {
     setIsLoading(true);
     setSolution(null);
 
-    // Mock AI recognition and solving
-    setTimeout(() => {
-      // In a real app, you would send imageDataUrl to your backend here
-      // and get the recognition, solution, and subject.
+    const result = await solveProblem(imageDataUrl);
+
+    setIsLoading(false);
+    if ('error' in result) {
+      setError(result.error);
+    } else {
       setSolution({
-        recognizedText: 'Solve for x: 2x + 5 = 15',
-        solutionSteps: [
-          'Subtract 5 from both sides: 2x + 5 - 5 = 15 - 5',
-          'Simplify: 2x = 10',
-          'Divide both sides by 2: 2x / 2 = 10 / 2',
-          'Result: x = 5',
-        ],
-        subject: 'math',
+        ...result,
         explanation: '',
         practiceProblems: [],
       });
-      setIsLoading(false);
-    }, 2000);
+    }
   };
 
   const handleReset = () => {
@@ -64,6 +60,13 @@ export default function Home() {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
           <Card className="shadow-lg">
             <CardContent className="p-6">
+              {error && (
+                <Alert variant="destructive" className="mb-4">
+                  <Terminal className="h-4 w-4" />
+                  <AlertTitle>Error</AlertTitle>
+                  <AlertDescription>{error}</AlertDescription>
+                </Alert>
+              )}
               <Whiteboard key={key} onSolve={handleSolve} isLoading={isLoading} onReset={handleReset} />
             </CardContent>
           </Card>
