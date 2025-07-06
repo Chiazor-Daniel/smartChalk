@@ -3,9 +3,11 @@
 import { useState } from 'react';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Lightbulb, Loader2 } from 'lucide-react';
+import { Lightbulb, Loader2, Volume2 } from 'lucide-react';
 import type { SolutionState } from '@/app/page';
-import { getExplanation } from '@/app/actions';
+import { getExplanation, getSpeechForText } from '@/app/actions';
+import { useToast } from '@/hooks/use-toast';
+import { Button } from './ui/button';
 
 interface SolutionDisplayProps {
   solution: SolutionState | null;
@@ -15,13 +17,34 @@ interface SolutionDisplayProps {
 export default function SolutionDisplay({ solution, isLoading }: SolutionDisplayProps) {
   const [explanation, setExplanation] = useState('');
   const [isExplanationLoading, setIsExplanationLoading] = useState(false);
+  const [audioUrl, setAudioUrl] = useState('');
+  const [isAudioLoading, setIsAudioLoading] = useState(false);
+  const { toast } = useToast();
 
   const handleExplain = async () => {
     if (!solution) return;
     setIsExplanationLoading(true);
+    setAudioUrl(''); // Reset audio when new explanation is fetched
     const result = await getExplanation(solution.recognizedText, solution.solutionSteps.join('\n'), solution.subject);
     setExplanation(result.plainLanguageExplanation);
     setIsExplanationLoading(false);
+  };
+
+  const handleListen = async () => {
+    if (!explanation) return;
+    setIsAudioLoading(true);
+    setAudioUrl('');
+    const result = await getSpeechForText(explanation);
+    if ('error' in result) {
+      toast({
+        variant: 'destructive',
+        title: 'Audio Generation Failed',
+        description: result.error,
+      });
+    } else {
+      setAudioUrl(result.audioDataUri);
+    }
+    setIsAudioLoading(false);
   };
 
   if (isLoading) {
@@ -90,7 +113,19 @@ export default function SolutionDisplay({ solution, isLoading }: SolutionDisplay
                 <span>Generating explanation...</span>
               </div>
             ) : explanation ? (
-              <p className="p-2 text-sm text-foreground/80 whitespace-pre-wrap">{explanation}</p>
+              <div className="space-y-2">
+                <p className="p-2 text-sm text-foreground/80 whitespace-pre-wrap">{explanation}</p>
+                <div className="flex items-center gap-2 p-2">
+                   <Button onClick={handleListen} size="icon" variant="ghost" disabled={isAudioLoading || !explanation} aria-label="Listen to explanation">
+                    {isAudioLoading ? (
+                      <Loader2 className="h-5 w-5 animate-spin" />
+                    ) : (
+                      <Volume2 className="h-5 w-5" />
+                    )}
+                  </Button>
+                  {audioUrl && <audio src={audioUrl} autoPlay controls className="w-full h-8" />}
+                </div>
+              </div>
             ) : (
               <p className="p-2 text-sm text-muted-foreground">Click to generate an explanation of the solution.</p>
             )}
