@@ -1,12 +1,11 @@
 'use client';
 
 import { useState } from 'react';
-import { Button } from '@/components/ui/button';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Lightbulb, BookCopy, Loader2 } from 'lucide-react';
+import { Lightbulb, Loader2 } from 'lucide-react';
 import type { SolutionState } from '@/app/page';
-import { getExplanation, getPracticeProblems } from '@/app/actions';
+import { getExplanation } from '@/app/actions';
 
 interface SolutionDisplayProps {
   solution: SolutionState | null;
@@ -16,8 +15,6 @@ interface SolutionDisplayProps {
 export default function SolutionDisplay({ solution, isLoading }: SolutionDisplayProps) {
   const [explanation, setExplanation] = useState('');
   const [isExplanationLoading, setIsExplanationLoading] = useState(false);
-  const [practiceProblems, setPracticeProblems] = useState<string[]>([]);
-  const [isPracticeLoading, setIsPracticeLoading] = useState(false);
 
   const handleExplain = async () => {
     if (!solution) return;
@@ -25,14 +22,6 @@ export default function SolutionDisplay({ solution, isLoading }: SolutionDisplay
     const result = await getExplanation(solution.recognizedText, solution.solutionSteps.join('\n'), solution.subject);
     setExplanation(result.plainLanguageExplanation);
     setIsExplanationLoading(false);
-  };
-
-  const handlePractice = async () => {
-    if (!solution) return;
-    setIsPracticeLoading(true);
-    const result = await getPracticeProblems(solution.recognizedText, solution.subject);
-    setPracticeProblems(result.practiceProblems);
-    setIsPracticeLoading(false);
   };
 
   if (isLoading) {
@@ -104,30 +93,6 @@ export default function SolutionDisplay({ solution, isLoading }: SolutionDisplay
               <p className="p-2 text-sm text-foreground/80 whitespace-pre-wrap">{explanation}</p>
             ) : (
               <p className="p-2 text-sm text-muted-foreground">Click to generate an explanation of the solution.</p>
-            )}
-          </AccordionContent>
-        </AccordionItem>
-        <AccordionItem value="practice">
-          <AccordionTrigger onClick={handlePractice} disabled={isPracticeLoading}>
-            <div className="flex items-center gap-2">
-              <BookCopy className="h-5 w-5" />
-              <span className="font-semibold">Generate Practice Problems</span>
-            </div>
-          </AccordionTrigger>
-          <AccordionContent>
-            {isPracticeLoading ? (
-              <div className="flex items-center justify-center p-4">
-                <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                <span>Generating problems...</span>
-              </div>
-            ) : practiceProblems.length > 0 ? (
-              <ul className="space-y-2 p-2">
-                {practiceProblems.map((prob, index) => (
-                  <li key={index} className="text-sm text-foreground/80 p-2 rounded-md bg-muted/50 font-mono">{prob}</li>
-                ))}
-              </ul>
-            ) : (
-              <p className="p-2 text-sm text-muted-foreground">Click to generate similar practice problems.</p>
             )}
           </AccordionContent>
         </AccordionItem>
