@@ -59,7 +59,7 @@ Now you can open your browser to `http://localhost:9002` to use the app!
 
 ## Deploying for Free
 
-You can deploy this application for free using either Firebase App Hosting or Netlify.
+You can deploy this application for free using several popular hosting providers.
 
 ---
 
@@ -141,3 +141,32 @@ For the deployed app to use Google AI, you need to add your API key to Netlify:
 #### 5. Deploy
 
 Click the "Deploy site" button. Netlify will build and deploy your application. Once it's done, you'll get a live URL for your app! Netlify will also automatically redeploy your site whenever you push new changes to your connected Git branch.
+
+---
+
+### Option 3: Deploying to Vercel (Free Hosting)
+
+Vercel is the platform created by the developers of Next.js, offering a seamless deployment experience.
+
+#### 1. Push Your Code to a Git Provider
+
+Ensure your project is available on a GitHub, GitLab, or Bitbucket repository.
+
+#### 2. Sign Up and Connect to Vercel
+
+1.  Go to [Vercel](https://vercel.com/signup) and sign up using your preferred Git provider.
+2.  From your Vercel dashboard, click "Add New..." -> "Project".
+3.  Select your Git provider and import the repository for this project.
+
+#### 3. Configure Your Project
+
+Vercel will automatically detect that you're using Next.js and configure the build settings. You just need to set up the environment variable.
+
+1.  Expand the "Environment Variables" section during project setup.
+2.  Add the following variable:
+    - **Name:** `GOOGLE_API_KEY`
+    - **Value:** Paste `your_google_api_key_here`
+
+#### 4. Deploy
+
+Click the "Deploy" button. Vercel will handle the entire build and deployment process. Once complete, you will be provided with a live URL for your application.
