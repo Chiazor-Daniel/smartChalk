@@ -1,11 +1,11 @@
 'use client';
 
-import { useRef, useEffect, useState, useCallback } from 'react';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { useRef, useEffect, useState, useCallback, use } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Pencil, Eraser, Trash2, Upload, RotateCcw, Loader2 } from 'lucide-react';
+import { Pencil, Eraser, Trash2, Upload, RotateCcw, Loader2, CheckCircle, Info } from 'lucide-react';
 import Image from 'next/image';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
 interface WhiteboardProps {
   onSolve: (imageDataUrl: string) => void;
@@ -19,37 +19,64 @@ export default function Whiteboard({ onSolve, isLoading, onReset }: WhiteboardPr
   const [context, setContext] = useState<CanvasRenderingContext2D | null>(null);
   const [tool, setTool] = useState<'pencil' | 'eraser'>('pencil');
   const [uploadedImage, setUploadedImage] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState('draw');
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const prepareCanvas = useCallback(() => {
+  const setCanvasSize = useCallback(() => {
     const canvas = canvasRef.current;
     if (canvas) {
-      const ctx = canvas.getContext('2d');
-      if (ctx) {
-        // Set canvas size based on container size
-        const container = canvas.parentElement;
-        if (container) {
-          const { width } = container.getBoundingClientRect();
-          canvas.width = width;
-          canvas.height = width * (3 / 4); // 4:3 aspect ratio
-        }
-        
-        ctx.fillStyle = 'white';
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-        ctx.lineCap = 'round';
-        ctx.lineJoin = 'round';
-        ctx.strokeStyle = 'black';
-        ctx.lineWidth = 3;
-        setContext(ctx);
+      const container = canvas.parentElement;
+      if (container) {
+        canvas.width = container.clientWidth;
+        canvas.height = container.clientHeight;
       }
     }
   }, []);
 
+  const redrawCanvas = useCallback(() => {
+    if (context && canvasRef.current) {
+      context.fillStyle = '#f0f0f0'; // A light grey background
+      context.fillRect(0, 0, canvasRef.current.width, canvasRef.current.height);
+      if (uploadedImage) {
+        const image = new window.Image();
+        image.src = uploadedImage;
+        image.onload = () => {
+          // center the image on the canvas
+          const canvas = canvasRef.current;
+          if (!canvas) return;
+          const hRatio = canvas.width / image.width;
+          const vRatio = canvas.height / image.height;
+          const ratio = Math.min(hRatio, vRatio, 1);
+          const centerShift_x = (canvas.width - image.width * ratio) / 2;
+          const centerShift_y = (canvas.height - image.height * ratio) / 2;
+          context.drawImage(image, 0, 0, image.width, image.height, centerShift_x, centerShift_y, image.width * ratio, image.height * ratio);
+        };
+      }
+    }
+  }, [context, uploadedImage]);
+
   useEffect(() => {
-    prepareCanvas();
-    window.addEventListener('resize', prepareCanvas);
-    return () => window.removeEventListener('resize', prepareCanvas);
-  }, [prepareCanvas]);
+    const canvas = canvasRef.current;
+    if (canvas) {
+      const ctx = canvas.getContext('2d');
+      if (ctx) {
+        setContext(ctx);
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+        ctx.strokeStyle = 'black';
+        ctx.lineWidth = 3;
+      }
+    }
+    setCanvasSize();
+    window.addEventListener('resize', () => {
+      setCanvasSize();
+      redrawCanvas();
+    });
+    return () => window.removeEventListener('resize', redrawCanvas);
+  }, [setCanvasSize, redrawCanvas]);
+
+  useEffect(() => {
+    redrawCanvas();
+  }, [redrawCanvas, uploadedImage]);
 
   const startDrawing = (event: React.MouseEvent<HTMLCanvasElement>) => {
     if (context) {
@@ -79,7 +106,7 @@ export default function Whiteboard({ onSolve, isLoading, onReset }: WhiteboardPr
         context.strokeStyle = 'black';
         context.lineWidth = 3;
       } else {
-        context.strokeStyle = 'white';
+        context.strokeStyle = '#f0f0f0';
         context.lineWidth = 20;
       }
     }
@@ -88,8 +115,9 @@ export default function Whiteboard({ onSolve, isLoading, onReset }: WhiteboardPr
   const clearCanvas = () => {
     if (context && canvasRef.current) {
       context.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
-      context.fillStyle = 'white';
+      context.fillStyle = '#f0f0f0';
       context.fillRect(0, 0, canvasRef.current.width, canvasRef.current.height);
+      setUploadedImage(null);
     }
   };
 
@@ -118,101 +146,85 @@ export default function Whiteboard({ onSolve, isLoading, onReset }: WhiteboardPr
     event.stopPropagation();
   };
 
-
   const handleSolveClick = () => {
     let imageDataUrl = '';
-    if (activeTab === 'draw' && canvasRef.current) {
-      imageDataUrl = canvasRef.current.toDataURL('image/png');
-    } else if (activeTab === 'upload' && uploadedImage) {
-      imageDataUrl = uploadedImage;
+    if (canvasRef.current) {
+       imageDataUrl = canvasRef.current.toDataURL('image/png');
     }
     onSolve(imageDataUrl);
   };
 
   return (
-    <div className="space-y-4">
-      <h2 className="text-2xl font-bold text-center text-foreground">Problem Input</h2>
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-2">
-          <TabsTrigger value="draw">Draw</TabsTrigger>
-          <TabsTrigger value="upload">Upload</TabsTrigger>
-        </TabsList>
-        <TabsContent value="draw">
-          <div className="flex justify-center items-center gap-2 my-2">
-            <Button
-              variant={tool === 'pencil' ? 'secondary' : 'ghost'}
-              size="icon"
-              onClick={() => handleToolChange('pencil')}
-              aria-label="Pencil"
-            >
-              <Pencil className="h-5 w-5" />
-            </Button>
-            <Button
-              variant={tool === 'eraser' ? 'secondary' : 'ghost'}
-              size="icon"
-              onClick={() => handleToolChange('eraser')}
-              aria-label="Eraser"
-            >
-              <Eraser className="h-5 w-5" />
-            </Button>
-            <Button variant="ghost" size="icon" onClick={clearCanvas} aria-label="Clear Canvas">
-              <Trash2 className="h-5 w-5" />
-            </Button>
-          </div>
-          <canvas
-            ref={canvasRef}
-            onMouseDown={startDrawing}
-            onMouseMove={draw}
-            onMouseUp={stopDrawing}
-            onMouseLeave={stopDrawing}
-            className="w-full h-auto border-2 border-dashed rounded-lg cursor-crosshair bg-white"
-          />
-        </TabsContent>
-        <TabsContent value="upload">
-          <div 
-            className="mt-4 flex justify-center items-center w-full h-80 border-2 border-dashed rounded-lg"
-            onDrop={handleDrop}
-            onDragOver={handleDragOver}
-          >
-            {uploadedImage ? (
-              <div className="relative w-full h-full">
-                <Image src={uploadedImage} alt="Uploaded problem" layout="fill" objectFit="contain" />
-              </div>
-            ) : (
-              <div className="text-center text-muted-foreground p-4">
-                <Upload className="mx-auto h-12 w-12" />
-                <p className="mt-2">Drag & drop an image here, or</p>
-                <Input
-                  id="image-upload"
-                  type="file"
-                  accept="image/*"
-                  onChange={handleImageUpload}
-                  className="hidden"
-                />
-                <Button variant="link" onClick={() => document.getElementById('image-upload')?.click()}>
-                   click to upload
-                </Button>
-              </div>
-            )}
-          </div>
-        </TabsContent>
-      </Tabs>
-      <div className="flex gap-4 pt-4">
-        <Button onClick={handleSolveClick} className="w-full" disabled={isLoading}>
+    <div className="w-full h-full relative" onDrop={handleDrop} onDragOver={handleDragOver}>
+      <canvas
+        ref={canvasRef}
+        onMouseDown={startDrawing}
+        onMouseMove={draw}
+        onMouseUp={stopDrawing}
+        onMouseLeave={stopDrawing}
+        className="w-full h-full cursor-crosshair bg-stone-100"
+      />
+       <div className="absolute top-4 left-1/2 -translate-x-1/2 flex gap-2 p-2 bg-card rounded-lg shadow-md border z-10">
+        <Button
+          variant={tool === 'pencil' ? 'secondary' : 'ghost'}
+          size="icon"
+          onClick={() => handleToolChange('pencil')}
+          aria-label="Pencil"
+        >
+          <Pencil className="h-5 w-5" />
+        </Button>
+        <Button
+          variant={tool === 'eraser' ? 'secondary' : 'ghost'}
+          size="icon"
+          onClick={() => handleToolChange('eraser')}
+          aria-label="Eraser"
+        >
+          <Eraser className="h-5 w-5" />
+        </Button>
+        <Button variant="ghost" size="icon" onClick={() => fileInputRef.current?.click()} aria-label="Upload Image">
+          <Upload className="h-5 w-5" />
+        </Button>
+        <Button variant="ghost" size="icon" onClick={clearCanvas} aria-label="Clear Canvas">
+          <Trash2 className="h-5 w-5" />
+        </Button>
+       </div>
+
+       <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-4 z-10">
+        <Button onClick={handleSolveClick} className="w-40" disabled={isLoading}>
           {isLoading ? (
             <>
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
               Solving...
             </>
           ) : (
-            'Solve Problem'
+            <>
+              <CheckCircle className="mr-2 h-4 w-4"/>
+              Solve Problem
+            </>
           )}
         </Button>
-        <Button onClick={onReset} variant="outline" className="w-full" disabled={isLoading}>
+        <Button onClick={() => { onReset(); clearCanvas(); }} variant="outline" className="w-40" disabled={isLoading}>
           <RotateCcw className="mr-2 h-4 w-4" />
           Start Over
         </Button>
       </div>
+      
+      <Input
+        ref={fileInputRef}
+        id="image-upload"
+        type="file"
+        accept="image/*"
+        onChange={handleImageUpload}
+        className="hidden"
+      />
+
+       {!uploadedImage && (
+         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 p-8 text-center text-muted-foreground pointer-events-none">
+           <Upload className="mx-auto h-12 w-12 mb-4" />
+           <p className="font-semibold">Draw a problem, or drop an image here.</p>
+           <p className="text-sm">You can also click the upload icon in the toolbar.</p>
+         </div>
+       )}
     </div>
   );
 }
