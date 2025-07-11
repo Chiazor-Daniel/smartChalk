@@ -48,7 +48,6 @@ export default function Home() {
       setSolution({
         ...result,
         explanation: '',
-        initialAudioUri: result.audioDataUri,
       });
       setIsSolutionVisible(true);
     }

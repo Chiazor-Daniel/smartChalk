@@ -25,10 +25,11 @@ export default function SolutionDisplay({ solution, isLoading, onClose }: Soluti
   const { toast } = useToast();
 
   useEffect(() => {
-    if (solution?.initialAudioUri) {
-      setAudioUrl(solution.initialAudioUri);
-    }
-  }, [solution?.initialAudioUri]);
+    // When the solution changes, reset the audio and explanation
+    setAudioUrl('');
+    setExplanation('');
+  }, [solution]);
+
 
   const handleExplain = async () => {
     if (!solution) return;
@@ -43,13 +44,6 @@ export default function SolutionDisplay({ solution, isLoading, onClose }: Soluti
   const handleListen = async () => {
     const textToRead = explanation || solution?.solutionSteps.join('. ');
     if (!textToRead) return;
-    
-    // Use initial audio if it's for the solution steps and explanation hasn't been generated
-    if (!explanation && solution?.initialAudioUri) {
-        setAudioUrl(solution.initialAudioUri);
-        return;
-    }
-
 
     setIsAudioLoading(true);
     setAudioUrl('');
