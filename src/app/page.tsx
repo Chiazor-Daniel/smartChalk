@@ -12,6 +12,7 @@ export interface SolutionState {
   solutionSteps: string[];
   subject: string;
   explanation: string;
+  initialAudioUri?: string;
 }
 
 export default function Home() {
@@ -47,6 +48,7 @@ export default function Home() {
       setSolution({
         ...result,
         explanation: '',
+        initialAudioUri: result.audioDataUri,
       });
       setIsSolutionVisible(true);
     }

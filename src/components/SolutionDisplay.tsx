@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Lightbulb, Loader2, Volume2, X } from 'lucide-react';
@@ -24,6 +24,12 @@ export default function SolutionDisplay({ solution, isLoading, onClose }: Soluti
   const [isAudioLoading, setIsAudioLoading] = useState(false);
   const { toast } = useToast();
 
+  useEffect(() => {
+    if (solution?.initialAudioUri) {
+      setAudioUrl(solution.initialAudioUri);
+    }
+  }, [solution?.initialAudioUri]);
+
   const handleExplain = async () => {
     if (!solution) return;
     if (explanation) return; // Don't re-fetch if already loaded
@@ -37,6 +43,13 @@ export default function SolutionDisplay({ solution, isLoading, onClose }: Soluti
   const handleListen = async () => {
     const textToRead = explanation || solution?.solutionSteps.join('. ');
     if (!textToRead) return;
+    
+    // Use initial audio if it's for the solution steps and explanation hasn't been generated
+    if (!explanation && solution?.initialAudioUri) {
+        setAudioUrl(solution.initialAudioUri);
+        return;
+    }
+
 
     setIsAudioLoading(true);
     setAudioUrl('');
@@ -54,7 +67,7 @@ export default function SolutionDisplay({ solution, isLoading, onClose }: Soluti
   };
 
   const MainContent = () => {
-    if (isLoading) {
+    if (isLoading && !solution) {
       return (
         <div className="space-y-6">
           <Skeleton className="h-8 w-3/4 mx-auto" />
@@ -132,7 +145,7 @@ export default function SolutionDisplay({ solution, isLoading, onClose }: Soluti
             <CardHeader data-drag-handle className="flex flex-row items-center justify-between space-y-0 pb-2 cursor-move">
                 <CardTitle className="text-xl font-bold">Solution</CardTitle>
                 <div className='flex items-center gap-1'>
-                    <Button onClick={handleListen} size="icon" variant="ghost" disabled={isAudioLoading || isLoading || (!explanation && !solution?.solutionSteps)} aria-label="Listen to explanation">
+                    <Button onClick={handleListen} size="icon" variant="ghost" disabled={isAudioLoading || (isLoading && !solution) || (!explanation && !solution?.solutionSteps)} aria-label="Listen to explanation">
                         {isAudioLoading ? (
                             <Loader2 className="h-5 w-5 animate-spin" />
                         ) : (

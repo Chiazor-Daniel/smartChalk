@@ -7,10 +7,27 @@ import type { SolveProblemFromImageOutput } from '@/ai/flows/solve-problem-from-
 import type { ExplainSolutionOutput } from '@/ai/flows/explain-solution-in-plain-language';
 import type { TextToSpeechOutput } from '@/ai/flows/text-to-speech';
 
-export async function solveProblem(imageDataUrl: string): Promise<SolveProblemFromImageOutput | { error: string }> {
+interface SolveProblemResult extends SolveProblemFromImageOutput {
+  audioDataUri?: string;
+}
+
+export async function solveProblem(imageDataUrl: string): Promise<SolveProblemResult | { error: string }> {
   try {
-    const result = await solveProblemFromImage({ photoDataUri: imageDataUrl });
-    return result;
+    // Kick off both requests in parallel
+    const solvePromise = solveProblemFromImage({ photoDataUri: imageDataUrl });
+    const result = await solvePromise;
+
+    // After the problem is solved, immediately generate audio for the steps
+    // Don't wait for this to return, but handle its result.
+    const speechPromise = textToSpeech({ text: result.solutionSteps.join('. ') });
+
+    const speechResult = await speechPromise;
+
+    return {
+      ...result,
+      audioDataUri: speechResult.audioDataUri,
+    };
+
   } catch (error) {
     console.error('Error solving problem:', error);
     return { error: 'Sorry, I was unable to process the image. Please try again with a clearer image.' };
