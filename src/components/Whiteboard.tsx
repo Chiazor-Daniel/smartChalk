@@ -1,11 +1,10 @@
 'use client';
 
-import { useRef, useEffect, useState, useCallback, use } from 'react';
+import { useRef, useEffect, useState, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Pencil, Eraser, Trash2, Upload, RotateCcw, Loader2, CheckCircle, Info } from 'lucide-react';
-import Image from 'next/image';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Pencil, Eraser, Trash2, Upload, RotateCcw, Loader2, CheckCircle } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
 
 interface WhiteboardProps {
   onSolve: (imageDataUrl: string) => void;
@@ -19,7 +18,34 @@ export default function Whiteboard({ onSolve, isLoading, onReset }: WhiteboardPr
   const [context, setContext] = useState<CanvasRenderingContext2D | null>(null);
   const [tool, setTool] = useState<'pencil' | 'eraser'>('pencil');
   const [uploadedImage, setUploadedImage] = useState<string | null>(null);
+  const [hasContent, setHasContent] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const { toast } = useToast();
+
+  const setCanvasBackground = useCallback((ctx: CanvasRenderingContext2D) => {
+    ctx.fillStyle = '#f8f9fa';
+    ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+  }, []);
+
+  const redrawCanvas = useCallback(() => {
+    if (context && canvasRef.current) {
+      setCanvasBackground(context);
+      if (uploadedImage) {
+        const image = new window.Image();
+        image.src = uploadedImage;
+        image.onload = () => {
+          const canvas = canvasRef.current;
+          if (!canvas) return;
+          const hRatio = canvas.width / image.width;
+          const vRatio = canvas.height / image.height;
+          const ratio = Math.min(hRatio, vRatio, 0.9);
+          const centerShift_x = (canvas.width - image.width * ratio) / 2;
+          const centerShift_y = (canvas.height - image.height * ratio) / 2;
+          context.drawImage(image, 0, 0, image.width, image.height, centerShift_x, centerShift_y, image.width * ratio, image.height * ratio);
+        };
+      }
+    }
+  }, [context, uploadedImage, setCanvasBackground]);
 
   const setCanvasSize = useCallback(() => {
     const canvas = canvasRef.current;
@@ -28,31 +54,10 @@ export default function Whiteboard({ onSolve, isLoading, onReset }: WhiteboardPr
       if (container) {
         canvas.width = container.clientWidth;
         canvas.height = container.clientHeight;
+        redrawCanvas();
       }
     }
-  }, []);
-
-  const redrawCanvas = useCallback(() => {
-    if (context && canvasRef.current) {
-      context.fillStyle = '#f0f0f0'; // A light grey background
-      context.fillRect(0, 0, canvasRef.current.width, canvasRef.current.height);
-      if (uploadedImage) {
-        const image = new window.Image();
-        image.src = uploadedImage;
-        image.onload = () => {
-          // center the image on the canvas
-          const canvas = canvasRef.current;
-          if (!canvas) return;
-          const hRatio = canvas.width / image.width;
-          const vRatio = canvas.height / image.height;
-          const ratio = Math.min(hRatio, vRatio, 1);
-          const centerShift_x = (canvas.width - image.width * ratio) / 2;
-          const centerShift_y = (canvas.height - image.height * ratio) / 2;
-          context.drawImage(image, 0, 0, image.width, image.height, centerShift_x, centerShift_y, image.width * ratio, image.height * ratio);
-        };
-      }
-    }
-  }, [context, uploadedImage]);
+  }, [redrawCanvas]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -62,24 +67,22 @@ export default function Whiteboard({ onSolve, isLoading, onReset }: WhiteboardPr
         setContext(ctx);
         ctx.lineCap = 'round';
         ctx.lineJoin = 'round';
-        ctx.strokeStyle = 'black';
+        ctx.strokeStyle = '#171717';
         ctx.lineWidth = 3;
       }
     }
     setCanvasSize();
-    window.addEventListener('resize', () => {
-      setCanvasSize();
-      redrawCanvas();
-    });
-    return () => window.removeEventListener('resize', redrawCanvas);
-  }, [setCanvasSize, redrawCanvas]);
-
+    window.addEventListener('resize', setCanvasSize);
+    return () => window.removeEventListener('resize', setCanvasSize);
+  }, [setCanvasSize]);
+  
   useEffect(() => {
     redrawCanvas();
-  }, [redrawCanvas, uploadedImage]);
+  }, [uploadedImage, redrawCanvas]);
 
   const startDrawing = (event: React.MouseEvent<HTMLCanvasElement>) => {
     if (context) {
+      setHasContent(true);
       context.beginPath();
       context.moveTo(event.nativeEvent.offsetX, event.nativeEvent.offsetY);
       setIsDrawing(true);
@@ -103,31 +106,36 @@ export default function Whiteboard({ onSolve, isLoading, onReset }: WhiteboardPr
     setTool(newTool);
     if (context) {
       if (newTool === 'pencil') {
-        context.strokeStyle = 'black';
+        context.strokeStyle = '#171717';
         context.lineWidth = 3;
       } else {
-        context.strokeStyle = '#f0f0f0';
-        context.lineWidth = 20;
+        context.strokeStyle = '#f8f9fa';
+        context.lineWidth = 25;
       }
     }
   };
 
   const clearCanvas = () => {
     if (context && canvasRef.current) {
-      context.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
-      context.fillStyle = '#f0f0f0';
-      context.fillRect(0, 0, canvasRef.current.width, canvasRef.current.height);
+      setCanvasBackground(context);
       setUploadedImage(null);
+      setHasContent(false);
     }
   };
 
   const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     if (event.target.files && event.target.files[0]) {
+      const file = event.target.files[0];
+      if(!file.type.startsWith('image/')) {
+        toast({ variant: 'destructive', title: 'Invalid File', description: 'Please upload an image file.'});
+        return;
+      }
       const reader = new FileReader();
       reader.onload = (e) => {
         setUploadedImage(e.target?.result as string);
+        setHasContent(true);
       };
-      reader.readAsDataURL(event.target.files[0]);
+      reader.readAsDataURL(file);
     }
   };
   
@@ -135,8 +143,16 @@ export default function Whiteboard({ onSolve, isLoading, onReset }: WhiteboardPr
     event.preventDefault();
     event.stopPropagation();
     if (event.dataTransfer.files && event.dataTransfer.files[0]) {
+      const file = event.dataTransfer.files[0];
+       if(!file.type.startsWith('image/')) {
+        toast({ variant: 'destructive', title: 'Invalid File', description: 'Please upload an image file.'});
+        return;
+      }
       const reader = new FileReader();
-      reader.onload = (e) => setUploadedImage(e.target?.result as string);
+      reader.onload = (e) => {
+        setUploadedImage(e.target?.result as string);
+        setHasContent(true);
+      };
       reader.readAsDataURL(event.dataTransfer.files[0]);
     }
   };
@@ -148,6 +164,14 @@ export default function Whiteboard({ onSolve, isLoading, onReset }: WhiteboardPr
 
   const handleSolveClick = () => {
     let imageDataUrl = '';
+    if (!hasContent) {
+      toast({
+        variant: 'destructive',
+        title: 'Empty Canvas',
+        description: 'Please draw or upload a problem first.',
+      });
+      return;
+    }
     if (canvasRef.current) {
        imageDataUrl = canvasRef.current.toDataURL('image/png');
     }
@@ -162,7 +186,7 @@ export default function Whiteboard({ onSolve, isLoading, onReset }: WhiteboardPr
         onMouseMove={draw}
         onMouseUp={stopDrawing}
         onMouseLeave={stopDrawing}
-        className="w-full h-full cursor-crosshair bg-stone-100"
+        className="w-full h-full cursor-crosshair bg-[#f8f9fa]"
       />
        <div className="absolute top-4 left-1/2 -translate-x-1/2 flex gap-2 p-2 bg-card rounded-lg shadow-md border z-10">
         <Button
@@ -189,22 +213,22 @@ export default function Whiteboard({ onSolve, isLoading, onReset }: WhiteboardPr
         </Button>
        </div>
 
-       <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-4 z-10">
-        <Button onClick={handleSolveClick} className="w-40" disabled={isLoading}>
+       <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex gap-4 z-10">
+        <Button onClick={handleSolveClick} className="w-44 h-12 text-md" disabled={isLoading}>
           {isLoading ? (
             <>
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              <Loader2 className="mr-2 h-5 w-5 animate-spin" />
               Solving...
             </>
           ) : (
             <>
-              <CheckCircle className="mr-2 h-4 w-4"/>
+              <CheckCircle className="mr-2 h-5 w-5"/>
               Solve Problem
             </>
           )}
         </Button>
-        <Button onClick={() => { onReset(); clearCanvas(); }} variant="outline" className="w-40" disabled={isLoading}>
-          <RotateCcw className="mr-2 h-4 w-4" />
+        <Button onClick={() => { onReset(); clearCanvas(); }} variant="outline" className="w-44 h-12 text-md" disabled={isLoading}>
+          <RotateCcw className="mr-2 h-5 w-5" />
           Start Over
         </Button>
       </div>
@@ -218,10 +242,10 @@ export default function Whiteboard({ onSolve, isLoading, onReset }: WhiteboardPr
         className="hidden"
       />
 
-       {!uploadedImage && (
+       {!hasContent && (
          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 p-8 text-center text-muted-foreground pointer-events-none">
-           <Upload className="mx-auto h-12 w-12 mb-4" />
-           <p className="font-semibold">Draw a problem, or drop an image here.</p>
+           <Upload className="mx-auto h-12 w-12 mb-4 opacity-50" />
+           <p className="font-semibold text-lg">Draw a problem, or drop an image here.</p>
            <p className="text-sm">You can also click the upload icon in the toolbar.</p>
          </div>
        )}

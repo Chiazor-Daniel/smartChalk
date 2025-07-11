@@ -87,7 +87,7 @@ export const Draggable: React.FC<DraggableProps> = ({ children }) => {
       }}
       onMouseDown={onMouseDown}
     >
-      {React.cloneElement(children as React.ReactElement, { 'data-drag-handle': true })}
+      {React.cloneElement(children as React.ReactElement)}
     </div>
   );
 };

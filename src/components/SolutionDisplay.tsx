@@ -26,6 +26,7 @@ export default function SolutionDisplay({ solution, isLoading, onClose }: Soluti
 
   const handleExplain = async () => {
     if (!solution) return;
+    if (explanation) return; // Don't re-fetch if already loaded
     setIsExplanationLoading(true);
     setAudioUrl(''); // Reset audio when new explanation is fetched
     const result = await getExplanation(solution.recognizedText, solution.solutionSteps.join('\n'), solution.subject);
@@ -62,8 +63,6 @@ export default function SolutionDisplay({ solution, isLoading, onClose }: Soluti
             <Skeleton className="h-6 w-full" />
             <Skeleton className="h-6 w-5/6" />
           </div>
-          <Skeleton className="h-10 w-full" />
-          <Skeleton className="h-10 w-full" />
         </div>
       );
     }
@@ -81,7 +80,7 @@ export default function SolutionDisplay({ solution, isLoading, onClose }: Soluti
     }
 
     return (
-      <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-2">
+      <div className="space-y-4">
         <div>
           <h3 className="font-semibold text-base mb-2">Recognized Problem:</h3>
           <code className="block w-full p-3 rounded-md bg-muted text-muted-foreground font-mono text-sm">{solution.recognizedText}</code>
@@ -129,11 +128,11 @@ export default function SolutionDisplay({ solution, isLoading, onClose }: Soluti
 
   return (
     <Draggable>
-        <Card className="shadow-2xl w-[90vw] max-w-lg border-2 border-primary/20">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 cursor-move">
+        <Card className="shadow-2xl w-[90vw] max-w-lg border-2 border-primary/20 bg-card/80 backdrop-blur-sm">
+            <CardHeader data-drag-handle className="flex flex-row items-center justify-between space-y-0 pb-2 cursor-move">
                 <CardTitle className="text-xl font-bold">Solution</CardTitle>
-                <div className='flex items-center gap-2'>
-                    <Button onClick={handleListen} size="icon" variant="ghost" disabled={isAudioLoading || isLoading} aria-label="Listen to explanation">
+                <div className='flex items-center gap-1'>
+                    <Button onClick={handleListen} size="icon" variant="ghost" disabled={isAudioLoading || isLoading || (!explanation && !solution?.solutionSteps)} aria-label="Listen to explanation">
                         {isAudioLoading ? (
                             <Loader2 className="h-5 w-5 animate-spin" />
                         ) : (
@@ -147,7 +146,9 @@ export default function SolutionDisplay({ solution, isLoading, onClose }: Soluti
             </CardHeader>
             <CardContent>
                 {audioUrl && <audio src={audioUrl} autoPlay controls className="w-full h-8 mb-4" />}
-                <MainContent />
+                <div className="max-h-[60vh] overflow-y-auto pr-3">
+                    <MainContent />
+                </div>
             </CardContent>
         </Card>
     </Draggable>
